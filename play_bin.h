@@ -5,12 +5,17 @@
 #include <string.h>
 #include <signal.h>
 #include <time.h>
+#include <errno.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <stdbool.h>
 #include <dirent.h>
 #include <linux/fb.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 typedef struct {
     char     magic[4];
@@ -21,12 +26,16 @@ typedef struct {
     uint32_t frame_size;  /* bytes of pixel data per frame */
 } __attribute__((packed)) GifHeader;
 
-
-struct ghibli_gif {
-    int index;
+typedef struct {
+    int  index;
     char path[64];
-    struct ghibli_gif *next;
-};
+} GhibliGif;
 
-extern struct ghibli_gif *ghibli_gif_head;
-extern struct ghibli_gif *ghibli_gif_tail;
+// enum {
+//     CMD_NONE,
+//     CMD_NEXT,
+//     CMD_PREV,
+//     CMD_PLAY,
+//     CMD_PAUSE,
+//     CMD_LIST
+// } g_cmd;
