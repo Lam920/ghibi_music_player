@@ -17,13 +17,16 @@
 void print_usage(const char *prog) {
     printf("Usage: %s [event_type]\n", prog);
     printf("  event_type:\n");
-    printf("    up    - Send button UP event\n");
-    printf("    down  - Send button DOWN event (default)\n");
-    printf("    hold  - Send button HOLD event\n");
-    printf("    gif   - Send GIF changed event\n");
+    printf("    up      - Send button UP event\n");
+    printf("    down    - Send button DOWN event (default)\n");
+    printf("    hold    - Send button HOLD event\n");
+    printf("    gif     - Send GIF changed event\n");
+    printf("    volup   - Send VOLUME UP event\n");
+    printf("    voldown - Send VOLUME DOWN event\n");
     printf("\nExamples:\n");
     printf("  %s down\n", prog);
     printf("  %s gif\n", prog);
+    printf("  %s volup\n", prog);
 }
 
 int main(int argc, char *argv[]) {
@@ -74,6 +77,14 @@ int main(int argc, char *argv[]) {
         evt.payload_len = sizeof(gif_changed_payload_t);
         printf("Publishing: GIF changed event (gif=%s, index=%d)\n", 
                payload->gif_name, payload->gif_index);
+        
+    } else if (strcmp(event_str, "volup") == 0) {
+        bus_evt_init(&evt, EVT_VOLUME_UP);
+        printf("Publishing: Volume UP event\n");
+        
+    } else if (strcmp(event_str, "voldown") == 0) {
+        bus_evt_init(&evt, EVT_VOLUME_DOWN);
+        printf("Publishing: Volume DOWN event\n");
         
     } else {
         fprintf(stderr, "Unknown event type: %s\n", event_str);

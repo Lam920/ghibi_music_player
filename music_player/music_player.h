@@ -10,6 +10,11 @@
 #include "tinyalsa/pcm.h"
 
 #define ALSA_DEVICE     "hw:0,0"
+#define MUSIC_DIR "/opt/ghibli_music"
+#define VOLUME_STEP 10
+#define VOLUME_MIN  0
+#define VOLUME_MAX  100
+#define VOLUME_DEFAULT 80
 
 typedef struct {
     char riff[4];
@@ -29,6 +34,16 @@ struct gif_music_mapping {
     const char *gif;
     const char *wav;
 };
+
+/* Playback state structure */
+typedef struct {
+    volatile sig_atomic_t stop_playback;
+    volatile sig_atomic_t running;
+    pthread_t             playback_thread;
+    pthread_mutex_t       mutex;
+    int                   bus_fd;
+    volatile int          volume;  /* 0-100 */
+} playback_state_t;
 
 extern struct gif_music_mapping playlist[];
 

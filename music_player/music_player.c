@@ -5,8 +5,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <time.h>
-
-#define MUSIC_DIR "/opt/ghibli_music"
+#include <stdint.h>
 
 struct gif_music_mapping playlist[] = {
     {"totoro", "porco_rosso.wav"},
@@ -17,21 +16,13 @@ struct gif_music_mapping playlist[] = {
     {NULL, NULL}
 };
 
-/* Playback state structure */
-typedef struct {
-    volatile sig_atomic_t stop_playback;
-    volatile sig_atomic_t running;
-    pthread_t             playback_thread;
-    pthread_mutex_t       mutex;
-    int                   bus_fd;
-} playback_state_t;
-
 static playback_state_t g_state = {
     .stop_playback = 0,
     .running = 1,
     .playback_thread = 0,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
-    .bus_fd = -1
+    .bus_fd = -1,
+    .volume = VOLUME_DEFAULT
 };
 
 
@@ -44,6 +35,32 @@ static const char *find_wav_for_gif(const char *gif_name) {
         }
     }
     return NULL;
+}
+
+/* Apply volume to PCM buffer (in-place) */
+static void apply_volume(char *buffer, size_t bytes, int bits_per_sample, int volume) {
+    size_t i;
+    
+    if (volume >= 100) {
+        return;  /* No attenuation needed */
+    }
+    
+    if (bits_per_sample == 16) {
+        /* 16-bit signed samples */
+        int16_t *samples = (int16_t *)buffer;
+        size_t num_samples = bytes / sizeof(int16_t);
+        for (i = 0; i < num_samples; i++) {
+            samples[i] = (int16_t)((samples[i] * volume) / 100);
+        }
+    } else if (bits_per_sample == 8) {
+        /* 8-bit unsigned samples (offset by 128) */
+        uint8_t *samples = (uint8_t *)buffer;
+        for (i = 0; i < bytes; i++) {
+            int16_t val = (int16_t)samples[i] - 128;
+            val = (val * volume) / 100;
+            samples[i] = (uint8_t)(val + 128);
+        }
+    }
 }
 
 /* Play WAV file with stop flag checking */
@@ -119,8 +136,18 @@ static int play_wav(const char *filename) {
         return -1;
     }
 
-    // Playback loop with stop flag checking
+    // Playback loop with stop flag checking and volume control
     while (!g_state.stop_playback && (bytes_read = fread(buffer, 1, buffer_size, fp)) > 0) {
+        int current_volume;
+        
+        /* Get current volume (thread-safe) */
+        pthread_mutex_lock(&g_state.mutex);
+        current_volume = g_state.volume;
+        pthread_mutex_unlock(&g_state.mutex);
+        
+        /* Apply volume adjustment */
+        apply_volume(buffer, bytes_read, header.bits_per_sample, current_volume);
+        
         if (pcm_write(pcm, buffer, bytes_read) < 0) {
             fprintf(stderr, "[music_player] Error: Write to PCM device failed\n");
             break;
@@ -230,6 +257,35 @@ static void handle_gif_changed(const ipc_event_t *evt) {
     }
 }
 
+/* Handle volume control events */
+static void handle_volume_event(event_type_t type) {
+    int new_volume;
+    
+    pthread_mutex_lock(&g_state.mutex);
+    
+    new_volume = g_state.volume;
+    
+    if (type == EVT_VOLUME_UP) {
+        new_volume += VOLUME_STEP;
+        if (new_volume > VOLUME_MAX) {
+            new_volume = VOLUME_MAX;
+        }
+    } else if (type == EVT_VOLUME_DOWN) {
+        new_volume -= VOLUME_STEP;
+        if (new_volume < VOLUME_MIN) {
+            new_volume = VOLUME_MIN;
+        }
+    }
+    
+    if (new_volume != g_state.volume) {
+        g_state.volume = new_volume;
+        pthread_mutex_unlock(&g_state.mutex);
+        printf("[music_player] Volume: %d%%\n", new_volume);
+    } else {
+        pthread_mutex_unlock(&g_state.mutex);
+    }
+}
+
 int main(int argc, char *argv[]) {
     struct sigaction sa;
     ipc_event_t evt;
@@ -252,16 +308,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Subscribe to EVT_GIF_CHANGED */
-    uint64_t mask = EVT_MASK(EVT_GIF_CHANGED);
+    /* Subscribe to EVT_GIF_CHANGED and volume events */
+    uint64_t mask = EVT_MASK(EVT_GIF_CHANGED) | EVT_MASK(EVT_VOLUME_UP) | EVT_MASK(EVT_VOLUME_DOWN);
     if (bus_subscribe(g_state.bus_fd, mask) < 0) {
         fprintf(stderr, "[music_player] Failed to subscribe to events\n");
         bus_disconnect(g_state.bus_fd);
         return 1;
     }
 
-    printf("[music_player] Subscribed to EVT_GIF_CHANGED\n");
-    printf("[music_player] Waiting for GIF change events...\n");
+    printf("[music_player] Subscribed to EVT_GIF_CHANGED, EVT_VOLUME_UP, EVT_VOLUME_DOWN\n");
+    printf("[music_player] Initial volume: %d%%\n", g_state.volume);
+    printf("[music_player] Waiting for events...\n");
 
     /* Main event loop */
     while (g_state.running) {
@@ -270,8 +327,16 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        if (evt.type == EVT_GIF_CHANGED) {
-            handle_gif_changed(&evt);
+        switch (evt.type) {
+            case EVT_GIF_CHANGED:
+                handle_gif_changed(&evt);
+                break;
+            case EVT_VOLUME_UP:
+            case EVT_VOLUME_DOWN:
+                handle_volume_event(evt.type);
+                break;
+            default:
+                break;
         }
     }
 

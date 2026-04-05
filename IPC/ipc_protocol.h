@@ -21,6 +21,10 @@ typedef enum {
     EVT_BTN_DOWN        = 0x02,
     EVT_BTN_HOLD        = 0x03,
 
+    /* Volume control */
+    EVT_VOLUME_UP       = 0x04,
+    EVT_VOLUME_DOWN     = 0x05,
+
     /* gif_player → bus */
     EVT_GIF_CHANGED     = 0x10,   /* payload: gif_changed_payload_t */
 
