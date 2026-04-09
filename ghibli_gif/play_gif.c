@@ -8,6 +8,11 @@
 #define GHIBLI_GIF_DIR "/opt/ghibli_gif"
 #define MAX_GIFS       64
 
+/* Color format: Enable for BGR565 displays (e.g., ST7789 1.54" 240x240) */
+#ifndef USE_BGR565
+#define USE_BGR565     0  /* Set to 1 for BGR565 displays, 0 for RGB565 (standard) */
+#endif
+
 /* Array-based GIF storage for O(1) access */
 static GhibliGif gif_array[MAX_GIFS];
 static int       gif_count = 0;
@@ -370,6 +375,10 @@ int main(int argc, char *argv[])
             memcpy(&delay_ms, fp, sizeof(uint16_t));
             memcpy(fbmem, fp + sizeof(uint16_t), hdr->frame_size);
 
+#if USE_BGR565
+            /* Convert RGB565 to BGR565 for displays with swapped color channels */
+            convert_frame_to_bgr((uint16_t *)fbmem, hdr->width * hdr->height);
+#endif
             delay_ns = delay_ms * 1000000L;
             if (delay_ns < min_ns) delay_ns = min_ns;
 

@@ -7,9 +7,17 @@ import sys
 import struct
 from PIL import Image
 
+ST7789_1_56 = True 
+ST7789_2_8 = False
+
 def rgb565(r, g, b):
+    """Convert RGB to BGR565 with bit inversion for ST7789 with INVON"""
+    # Swap R and B channels for BGR565
     v = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-    return v ^ 0xFFFF  # invert all bits to compensate for 0x21 INVON
+    # Invert bits to compensate for hardware INVON (0x21)
+    if ST7789_2_8:
+        v = ~v & 0xFFFF
+    return v
 
 def convert(gif_path, bin_path, dst_w, dst_h):
     gif = Image.open(gif_path)
