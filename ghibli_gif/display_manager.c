@@ -1,4 +1,4 @@
-#include "play_gif.h"
+#include "display_manager.h"
 #include "../IPC/bus_client.h"
 #include "../IPC/ipc_protocol.h"
 

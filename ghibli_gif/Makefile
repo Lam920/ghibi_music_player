@@ -7,13 +7,13 @@ LDFLAGS = -static -lm -s -flto
 # IPC bus client
 BUS_CLIENT = ../IPC/bus_client.c
 
-all: play_gif gifctl
+all: display_manager gifctl
 
-play_gif: play_gif.c $(BUS_CLIENT)
-	$(CC) $(CFLAGS) -o play_gif play_gif.c $(BUS_CLIENT) $(LDFLAGS)
+display_manager: display_manager.c $(BUS_CLIENT)
+	$(CC) $(CFLAGS) -o display_manager display_manager.c $(BUS_CLIENT) $(LDFLAGS)
 
-gifctl:
+gifctl: gifctl.c
 	$(CC) -Os -s -static -o gifctl gifctl.c
 
 clean:
-	rm -f play_gif gifctl
+	rm -f display_manager gifctl
