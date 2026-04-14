@@ -33,7 +33,8 @@ typedef enum {
     EVT_MUSIC_STOPPED   = 0x21,
 
     /* clock_display → bus */
-    EVT_CLOCK_TICK      = 0x30,   /* payload: clock_tick_payload_t */
+    EVT_GIF_TO_CALENDAR      = 0x30,  
+    EVT_CALENDAR_TO_GIF      = 0x31,
 
     EVT_MAX
 } event_type_t;

@@ -86,7 +86,18 @@ int main(int argc, char *argv[]) {
         bus_evt_init(&evt, EVT_VOLUME_DOWN);
         printf("Publishing: Volume DOWN event\n");
         
-    } else {
+    } 
+    else if (strcmp(event_str, "to_calendar") == 0) {
+        bus_evt_init(&evt, EVT_GIF_TO_CALENDAR);
+        printf("Publishing: Switch to calendar mode event\n");
+        
+    } 
+    else if (strcmp(event_str, "to_gif") == 0) {
+        bus_evt_init(&evt, EVT_CALENDAR_TO_GIF);
+        printf("Publishing: Switch to GIF mode event\n");
+        
+    }
+    else {
         fprintf(stderr, "Unknown event type: %s\n", event_str);
         print_usage(argv[0]);
         bus_disconnect(bus_fd);

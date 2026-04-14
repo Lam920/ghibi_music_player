@@ -33,4 +33,4 @@ test_publisher: test_publisher.c $(COMMON_SRC)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f event_bus test_subscriber test_publisher
+	rm -f event_bus test_subscriber test_publisher *.o
