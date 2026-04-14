@@ -9,11 +9,14 @@ BUS_CLIENT = ../IPC/bus_client.c
 
 all: display_manager gifctl
 
-display_manager: display_manager.c $(BUS_CLIENT)
-	$(CC) $(CFLAGS) -o display_manager display_manager.c $(BUS_CLIENT) $(LDFLAGS)
+display_manager: display_manager.c rtc.c text_util.c $(BUS_CLIENT)
+	$(CC) $(CFLAGS) -o display_manager display_manager.c rtc.c text_util.c $(BUS_CLIENT) $(LDFLAGS)
 
 gifctl: gifctl.c
 	$(CC) -Os -s -static -o gifctl gifctl.c
 
+sync_rtc: sync_rtc.c
+	$(CC) -Os -s -static -o sync_rtc sync_rtc.c
+
 clean:
-	rm -f display_manager gifctl
+	rm -f display_manager gifctl sync_rtc

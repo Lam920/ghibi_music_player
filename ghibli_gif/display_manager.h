@@ -1,3 +1,5 @@
+#ifndef DISPLAY_MANAGER_H
+#define DISPLAY_MANAGER_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -17,6 +19,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "text_util.h"
+#include "rtc.h"
+
 typedef struct {
     char     magic[4];
     uint32_t nframes;
@@ -31,11 +36,13 @@ typedef struct {
     char path[64];
 } GhibliGif;
 
-// enum {
-//     CMD_NONE,
-//     CMD_NEXT,
-//     CMD_PREV,
-//     CMD_PLAY,
-//     CMD_PAUSE,
-//     CMD_LIST
-// } g_cmd;
+/* ── display mode ──────────────────────────────────────────────────────────*/
+
+typedef enum {
+    MODE_GIF      = 0,
+    MODE_CALENDAR = 1
+} DisplayMode_t;
+
+#define CALENDAR_TICK_NS    (500000000L)        /* redraw clock every 500 ms            */
+
+#endif /* DISPLAY_MANAGER_H */

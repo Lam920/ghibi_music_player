@@ -25,6 +25,8 @@ static int g_bus_fd = -1;
 #define CMD_NEXT  1
 #define CMD_PREV  2
 #define CMD_PLAY  3
+#define CMD_TO_CALENDAR  4
+#define CMD_TO_GIF       5
 
 static volatile sig_atomic_t g_cmd     = CMD_NONE;
 static volatile sig_atomic_t g_paused  = 0;
@@ -119,7 +121,7 @@ static void init_event_bus(void)
     fcntl(g_bus_fd, F_SETFL, flags | O_NONBLOCK);
 
     /* Subscribe to button events */
-    uint64_t mask = EVT_MASK(EVT_BTN_UP) | EVT_MASK(EVT_BTN_DOWN);
+    uint64_t mask = EVT_MASK(EVT_BTN_UP) | EVT_MASK(EVT_BTN_DOWN) | EVT_MASK(EVT_GIF_TO_CALENDAR) | EVT_MASK(EVT_CALENDAR_TO_GIF);
     if (bus_subscribe(g_bus_fd, mask) < 0) {
         fprintf(stderr, "Failed to subscribe to events\n");
         cleanup_bus();
@@ -128,16 +130,18 @@ static void init_event_bus(void)
 
     printf("[play_gif] Connected to event bus\n");
     printf("[play_gif] Subscribed to button events (UP=next, DOWN=prev)\n");
+    printf("[play_gif] Subscribed to mode switch events (GIF->CALENDAR, CALENDAR->GIF)\n"); 
+    printf("[play_gif] Subscribed to volume events (UP=volup, DOWN=voldown)\n");
 }
 
 /*  Event handler - process button events */
 
-static void handle_event(const ipc_event_t *evt)
+static void handle_event(const ipc_event_t *evt, DisplayMode_t current_mode)
 {
     switch (evt->type) {
         case EVT_BTN_UP:
             /* Button UP = Next GIF */
-            if (g_cmd == CMD_NONE) {
+            if (current_mode == MODE_GIF && g_cmd == CMD_NONE) {
                 printf("[play_gif] Button UP -> NEXT\n");
                 g_paused = 0;
                 g_cmd = CMD_NEXT;
@@ -146,12 +150,27 @@ static void handle_event(const ipc_event_t *evt)
 
         case EVT_BTN_DOWN:
             /* Button DOWN = Previous GIF */
-            if (g_cmd == CMD_NONE) {
+            if (current_mode == MODE_GIF && g_cmd == CMD_NONE) {
                 printf("[play_gif] Button DOWN -> PREV\n");
                 g_paused = 0;
                 g_cmd = CMD_PREV;
             }
             break;
+
+        case EVT_GIF_TO_CALENDAR:
+            if (current_mode == MODE_GIF) {
+                printf("[display_manager] -> CALENDAR mode\n");
+                g_cmd = CMD_TO_CALENDAR;
+            }
+            break;
+
+        case EVT_CALENDAR_TO_GIF:
+            if (current_mode == MODE_CALENDAR) {
+                printf("[display_manager] -> GIF mode\n");
+                g_cmd = CMD_TO_GIF;
+            }
+            break;
+
 
         default:
             /* Ignore other events */
@@ -161,7 +180,7 @@ static void handle_event(const ipc_event_t *evt)
 
 /*  Non-blocking event bus poll (called each frame) */
 
-static void poll_events(void)
+static void poll_events(DisplayMode_t mode)
 {
     ipc_event_t evt;
     ssize_t n;
@@ -200,7 +219,7 @@ static void poll_events(void)
     }
 
     /* Process the event */
-    handle_event(&evt);
+    handle_event(&evt, mode);
 }
 
 /*  Publish GIF changed event */
@@ -224,6 +243,46 @@ static void publish_gif_changed(int idx)
     }
 }
 
+/* ── calendar loop ─────────────────────────────────────────────────────────
+ *
+ * Runs while mode == MODE_CALENDAR.
+ * Redraws every CALENDAR_TICK_NS (500 ms) so the seconds digit stays live.
+ * Returns when CMD_TO_GIF is set.
+ */
+static void run_calendar_mode(uint16_t *fbmem)
+{
+    struct timespec next;
+    clock_gettime(CLOCK_MONOTONIC, &next);
+
+    printf("[display_manager] Entering calendar mode\n");
+
+    while (g_running && g_cmd == CMD_NONE) {
+
+        /* Wait for events to switch to GIF mode */
+        poll_events(MODE_CALENDAR);
+
+        if (g_cmd != CMD_NONE) 
+            break;
+
+        /* Re-sync RTC drift periodically */
+        resync_rtc_if_needed();
+
+        /* Render clock + date into fbmem */
+        render_calendar_frame(fbmem);
+
+        /* Sleep until next tick */
+        next.tv_nsec += CALENDAR_TICK_NS;
+        while (next.tv_nsec >= 1000000000L) {
+            next.tv_nsec -= 1000000000L;
+            next.tv_sec++;
+        }
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);
+    }
+
+    printf("[display_manager] Leaving calendar mode\n");
+}
+
+
 int main(int argc, char *argv[])
 {
     struct fb_fix_screeninfo finfo;
@@ -233,6 +292,7 @@ int main(int argc, char *argv[])
     struct timespec          next;
     int                      current_idx;
     struct sigaction         sa;
+    DisplayMode_t            mode = MODE_GIF;
 
     /* ── discover GIFs ──*/
     get_ghibli_gifs();
@@ -301,6 +361,21 @@ int main(int argc, char *argv[])
 
     /* outer loop: load + play one GIF, switch on command */
     while (g_running) {
+        /*  CALENDAR MODE */
+        if (mode == MODE_CALENDAR) {
+            g_cmd = CMD_NONE;
+            run_calendar_mode(fbmem);
+
+            if (g_cmd == CMD_TO_GIF) {
+                mode  = MODE_GIF;
+                g_cmd = CMD_NONE;
+                /* Play music according to the selected GIF, 
+                no needed yet for change back and forth calender <--> gif */
+                // publish_gif_changed(current_idx);
+            }
+            continue;
+        }
+
         int             fd;
         struct stat     st;
         const uint8_t  *data;
@@ -358,12 +433,12 @@ int main(int argc, char *argv[])
             uint16_t       delay_ms;
             long           delay_ns;
 
-            poll_events();
+            poll_events(MODE_GIF);
 
             /* Pause: spin with 16 ms sleep, keep polling events, check when gif is paused */
             while (g_paused && g_running && g_cmd == CMD_NONE) 
             {
-                poll_events();
+                poll_events(MODE_GIF);
                 struct timespec ts = {0, 16000000L};
                 nanosleep(&ts, NULL);
             }
@@ -413,6 +488,12 @@ int main(int argc, char *argv[])
                     break;
                 }
             }
+        } else if (g_cmd == CMD_TO_CALENDAR) 
+        {
+            mode = MODE_CALENDAR;
+            g_cmd = CMD_NONE;
+            /* Continue to top of outer loop, which will enter calendar mode */
+            continue;
         }
         g_cmd = CMD_NONE;
     }
