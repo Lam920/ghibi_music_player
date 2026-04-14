@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
+#include <signal.h>
+#include <pthread.h>
 #include "tinyalsa/pcm.h"
 
 #define ALSA_DEVICE     "hw:0,0"
