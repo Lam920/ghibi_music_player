@@ -16,7 +16,7 @@
 #define VOLUME_STEP 10
 #define VOLUME_MIN  0
 #define VOLUME_MAX  100
-#define VOLUME_DEFAULT 80
+#define VOLUME_DEFAULT 20
 
 typedef struct {
     char riff[4];

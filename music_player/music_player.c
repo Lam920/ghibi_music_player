@@ -12,7 +12,7 @@ struct gif_music_mapping playlist[] = {
     {"haku", "haku.wav"},
     {"sophie", "sophie.wav"},
     {"sosuke", "sosuke.wav"},
-    {"solider", "soldier.wav"},
+    {"solider", "solider.wav"},
     {NULL, NULL}
 };
 
