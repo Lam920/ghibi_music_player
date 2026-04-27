@@ -10,12 +10,15 @@ LDFLAGS = -static -pthread $(TINYALSA_LIB)/libtinyalsa.a
 
 all: music_player
 
-music_player: music_player.c $(IPC_DIR)/bus_client.o
-	$(CC) $(CFLAGS) -o music_player music_player.c $(IPC_DIR)/bus_client.o $(LDFLAGS)
+music_player: music_player.c utils.o $(IPC_DIR)/bus_client.o
+	$(CC) $(CFLAGS) -o music_player music_player.c utils.o $(IPC_DIR)/bus_client.o $(LDFLAGS)
 	$(CROSS_COMPILE)strip music_player
+
+utils.o: utils.c utils.h music_player.h
+	$(CC) $(CFLAGS) -c utils.c
 
 $(IPC_DIR)/bus_client.o:
 	$(MAKE) -C $(IPC_DIR) bus_client.o
 
 clean:
-	rm -f music_player
+	rm -f music_player utils.o

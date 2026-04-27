@@ -6,15 +6,13 @@
 #include <fcntl.h>
 #include <time.h>
 #include <stdint.h>
+#include "utils.h"
+#include <ctype.h>
 
-struct gif_music_mapping playlist[] = {
-    {"totoro", "porco_rosso.wav"},
-    {"haku", "haku.wav"},
-    {"sophie", "sophie.wav"},
-    {"sosuke", "sosuke.wav"},
-    {"solider", "solider.wav"},
-    {NULL, NULL}
-};
+/* Dynamic playlist array */
+struct gif_music_mapping *playlist = NULL;
+static size_t playlist_count = 0;
+static size_t playlist_capacity = 0;
 
 static playback_state_t g_state = {
     .stop_playback = 0,
@@ -25,6 +23,124 @@ static playback_state_t g_state = {
     .volume = VOLUME_DEFAULT
 };
 
+/* Load playlist configuration from file */
+static int load_config(const char *config_path) {
+    FILE *fp;
+    char line[512];
+    char *gif_name, *wav_name, *delimiter;
+    size_t line_num = 0;
+    
+    fp = fopen(config_path, "r");
+    if (!fp) {
+        fprintf(stderr, "[music_player] Error: Cannot open config file %s: %s\n", 
+                config_path, strerror(errno));
+        return -1;
+    }
+    
+    printf("[music_player] Loading config from %s\n", config_path);
+    
+    /* Free any existing playlist */
+    free_playlist(playlist);
+    playlist = NULL;
+    playlist_count = 0;
+    
+    /* Initial allocation */
+    playlist_capacity = 16;
+    playlist = calloc(playlist_capacity, sizeof(struct gif_music_mapping));
+    if (!playlist) {
+        fprintf(stderr, "[music_player] Error: Cannot allocate playlist memory\n");
+        fclose(fp);
+        return -1;
+    }
+    
+    while (fgets(line, sizeof(line), fp)) {
+        line_num++;
+        
+        /* Trim whitespace */
+        gif_name = trim_whitespace(line);
+        
+        /* Skip empty lines and comments */
+        if (gif_name[0] == '\0' || gif_name[0] == '#') {
+            continue;
+        }
+        
+        /* Find delimiter '=' */
+        delimiter = strchr(gif_name, '=');
+        if (!delimiter) {
+            fprintf(stderr, "[music_player] Warning: Invalid format at line %zu (expected gif=wav.wav)\n", 
+                    line_num);
+            continue;
+        }
+        
+        /* Split into gif_name and wav_name */
+        *delimiter = '\0';
+        wav_name = delimiter + 1;
+        
+        /* Trim both parts */
+        gif_name = trim_whitespace(gif_name);
+        wav_name = trim_whitespace(wav_name);
+        
+        /* Validate */
+        if (gif_name[0] == '\0' || wav_name[0] == '\0') {
+            fprintf(stderr, "[music_player] Warning: Empty gif or wav name at line %zu\n", 
+                    line_num);
+            continue;
+        }
+        
+        /* Expand array if needed */
+        if (playlist_count >= playlist_capacity - 1) {
+            size_t new_capacity = playlist_capacity * 2;
+            struct gif_music_mapping *new_playlist = realloc(playlist, 
+                    new_capacity * sizeof(struct gif_music_mapping));
+            if (!new_playlist) {
+                fprintf(stderr, "[music_player] Error: Cannot expand playlist memory\n");
+                free_playlist(playlist);
+                playlist = NULL;
+                playlist_count = 0;
+                fclose(fp);
+                return -1;
+            }
+            playlist = new_playlist;
+            playlist_capacity = new_capacity;
+            /* Zero out new memory */
+            memset(&playlist[playlist_count], 0, 
+                   (new_capacity - playlist_count) * sizeof(struct gif_music_mapping));
+        }
+        
+        /* Store the mapping */
+        playlist[playlist_count].gif = strdup(gif_name);
+        playlist[playlist_count].wav = strdup(wav_name);
+        
+        if (!playlist[playlist_count].gif || !playlist[playlist_count].wav) {
+            fprintf(stderr, "[music_player] Error: Cannot allocate string memory\n");
+            free_playlist(playlist);
+            playlist = NULL;
+            playlist_count = 0;
+            fclose(fp);
+            return -1;
+        }
+        
+        printf("[music_player]   %s -> %s\n", 
+               playlist[playlist_count].gif, 
+               playlist[playlist_count].wav);
+        
+        playlist_count++;
+    }
+    
+    /* Add NULL terminator entry */
+    playlist[playlist_count].gif = NULL;
+    playlist[playlist_count].wav = NULL;
+    
+    fclose(fp);
+    
+    printf("[music_player] Loaded %zu mappings from config\n", playlist_count);
+    
+    if (playlist_count == 0) {
+        fprintf(stderr, "[music_player] Warning: No valid mappings found in config file\n");
+    }
+    
+    return 0;
+}
 
 /* Find WAV file for a given GIF name */
 static const char *find_wav_for_gif(const char *gif_name) {
@@ -300,6 +416,13 @@ int main(int argc, char *argv[]) {
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
 
+    /* Load configuration */
+    printf("[music_player] Starting Music Player daemon...\n");
+    if (load_config(CONFIG_FILE) < 0) {
+        fprintf(stderr, "[music_player] Failed to load configuration from %s\n", CONFIG_FILE);
+        return 1;
+    }
+
     /* Connect to event bus */
     printf("[music_player] Connecting to event bus...\n");
     g_state.bus_fd = bus_connect(5);
@@ -344,6 +467,7 @@ int main(int argc, char *argv[]) {
     printf("[music_player] Shutting down...\n");
     stop_current_playback();
     bus_disconnect(g_state.bus_fd);
+    free_playlist(playlist);
     
     printf("[music_player] Exiting\n");
     return 0;

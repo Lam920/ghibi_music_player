@@ -13,6 +13,7 @@
 
 #define ALSA_DEVICE     "hw:0,0"
 #define MUSIC_DIR "/opt/ghibli_music"
+#define CONFIG_FILE "/opt/config/gif_to_wave.conf"
 #define VOLUME_STEP 10
 #define VOLUME_MIN  0
 #define VOLUME_MAX  100
@@ -47,6 +48,6 @@ typedef struct {
     volatile int          volume;  /* 0-100 */
 } playback_state_t;
 
-extern struct gif_music_mapping playlist[];
+extern struct gif_music_mapping *playlist;
 
 #endif /* MUSIC_PLAYER_H */

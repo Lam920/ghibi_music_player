@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <ctype.h>
 
 int get_playlist_num(struct gif_music_mapping *playlist) {
     int count = 0;
@@ -17,4 +18,36 @@ int get_playlist_index(struct gif_music_mapping *playlist, const char *gif) {
         index++;
     }
     return -1; // Not found
+}
+
+char *trim_whitespace(char *str) {
+    char *end;
+    
+    /* Trim leading space */
+    while (isspace((unsigned char)*str)) str++;
+    
+    if (*str == 0) return str;
+    
+    /* Trim trailing space */
+    end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end)) end--;
+    
+    *(end + 1) = '\0';
+    return str;
+}
+
+
+void free_playlist(struct gif_music_mapping *playlist) {
+    size_t i;
+    
+    if (playlist != NULL) {
+        /* Free until we hit the NULL terminator (where both gif and wav are NULL) */
+        for (i = 0; playlist[i].gif != NULL || playlist[i].wav != NULL; i++) {
+            if (playlist[i].gif) 
+                free((void *)playlist[i].gif);
+            if (playlist[i].wav) 
+                free((void *)playlist[i].wav);
+        }
+        free(playlist);
+    }
 }
