@@ -1,5 +1,7 @@
-CROSS_COMPILE = /home/lambt9/Desktop/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-x86_64/bin/riscv64-unknown-linux-gnu-
+CROSS_COMPILE = /home/lambt9/Desktop/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
 CC = $(CROSS_COMPILE)gcc
+
+export PATH=/home/lambt9/Desktop/duo-buildroot-sdk/host-tools/gcc/host-tools/gcc/riscv64-linux-musl-x86_64/bin/:$PATH
 
 # Size optimization flags:
 # -Os: optimize for size
@@ -33,4 +35,7 @@ test_publisher: test_publisher.c $(COMMON_SRC)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f event_bus test_subscriber test_publisher *.o
+	/usr/bin/rm -f event_bus test_publisher *.o
+
+#install/soc_cv1800b_milkv_duo_sd/
+#ln -s ld-musl-riscv64v0p7_xthead.so.1 /lib/ld-musl-riscv64.so.1

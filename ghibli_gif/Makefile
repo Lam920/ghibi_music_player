@@ -1,8 +1,8 @@
 # From SDK host-tools path
-CROSS_COMPILE = /home/lambt9/Desktop/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-x86_64/bin/riscv64-unknown-linux-gnu-
+CROSS_COMPILE = /home/lambt9/Desktop/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
 CC = $(CROSS_COMPILE)gcc
 CFLAGS = -Wall -Os -std=c99 -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112L -flto -I../IPC
-LDFLAGS = -static -lm -s -flto
+LDFLAGS = -lm -s -flto -Wl,--dynamic-linker=/lib/ld-musl-riscv64v0p7_xthead.so.1
 
 # IPC bus client
 BUS_CLIENT = ../IPC/bus_client.c
