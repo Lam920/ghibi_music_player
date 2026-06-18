@@ -18,7 +18,7 @@
 #define FONT_H      16
 
 #define FB_W        240               
-#define FB_H        240
+#define FB_H        320
 
 /* ── calendar frame renderer ───────────────────────────────────────────────
  *
@@ -40,28 +40,10 @@
 
 extern const uint8_t g_font[(FONT_LAST - FONT_FIRST + 1)][FONT_H];
 
-void draw_string(uint16_t *buf, int px, int py,
-                        const char *s, uint16_t fg, uint16_t bg, int transparent_bg);
-
-void draw_string_centered(uint16_t *buf, int cy,
-                                 const char *s, uint16_t fg, int transparent_bg);
-
-void draw_char_scaled(uint16_t *buf, int px, int py,
-                              char c, uint16_t fg, int sx, int sy);
-
-void draw_string_scaled_centered(uint16_t *buf, int cy,
-                                       const char *s, uint16_t fg, int sx, int sy);
-
 /* Draw text with black outline for readability on any background */
 void draw_string_scaled_centered_outlined(uint16_t *buf, int cy,
                                           const char *s, uint16_t fg,
                                           int sx, int sy);
-
-void draw_string_centered_outlined(uint16_t *buf, int cy,
-                                   const char *s, uint16_t fg);
-
-/* semi-transparent shadow: darken bg pixels behind text area */
-void draw_shadow_band(uint16_t *buf, int y, int h);
 
 void render_calendar_frame(uint16_t *fbmem_hw);
 

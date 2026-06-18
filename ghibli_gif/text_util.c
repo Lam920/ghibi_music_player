@@ -136,15 +136,6 @@ void draw_string(uint16_t *buf, int px, int py,
     }
 }
 
-/* centered string helper */
-void draw_string_centered(uint16_t *buf, int cy,
-                                 const char *s, uint16_t fg, int transparent_bg)
-{
-    int len = (int)strlen(s);
-    int px  = (FB_W - len * FONT_W) / 2;
-    draw_string(buf, px, cy, s, fg, 0, transparent_bg);
-}
-
 /*
  * draw_char_scaled – like draw_char but each pixel is sx×sy screen pixels.
  */
@@ -172,19 +163,6 @@ void draw_char_scaled(uint16_t *buf, int px, int py,
     }
 }
 
-void draw_string_scaled_centered(uint16_t *buf, int cy,
-                                        const char *s, uint16_t fg,
-                                        int sx, int sy)
-{
-    int len = (int)strlen(s);
-    int total_w = len * FONT_W * sx;
-    int px = (FB_W - total_w) / 2;
-    while (*s) {
-        draw_char_scaled(buf, px, cy, *s, fg, sx, sy);
-        px += FONT_W * sx;
-        s++;
-    }
-}
 
 /* Draw text with black outline for readability on any background */
 void draw_string_scaled_centered_outlined(uint16_t *buf, int cy,
@@ -254,20 +232,6 @@ void draw_string_centered_outlined(uint16_t *buf, int cy,
     draw_string(buf, px, cy, s, fg, 0, 1);
 }
 
-void draw_shadow_band(uint16_t *buf, int y, int h)
-{
-    for (int row = y; row < y + h && row < FB_H; row++) {
-        for (int col = 0; col < FB_W; col++) {
-            uint16_t px = buf[row * FB_W + col];
-            /* arithmetic right-shift on R,G,B channels by 1 → 50% darker */
-            uint8_t r = ((px >> 11) & 0x1F) >> 1;
-            uint8_t g = ((px >>  5) & 0x3F) >> 1;
-            uint8_t b = ( px        & 0x1F) >> 1;
-            buf[row * FB_W + col] = (uint16_t)((r << 11) | (g << 5) | b);
-        }
-    }
-}
-
 /* Load background by day of the week */
 static void load_background(int day)
 {
@@ -327,9 +291,6 @@ void render_calendar_frame(uint16_t *fbmem_hw)
     int time_y  = (FB_H / 2) - (FONT_H * SCALE_TIME) - 8;
     int date_y  = (FB_H / 2) + 4;
     int dow_y   = date_y + FONT_H * SCALE_DATE + 6;
-    /* Shadow band disabled - text drawn directly on background */
-    /* draw_shadow_band(calendar_buf, time_y - 4,
-                     (FONT_H * SCALE_TIME) + (FONT_H * SCALE_DATE) + FONT_H + 24); */
 
     /* 5. Compose text */
     uint16_t fg_white  = rgb565(255, 255, 255);
@@ -345,8 +306,8 @@ void render_calendar_frame(uint16_t *fbmem_hw)
                                          fg_white, SCALE_TIME, SCALE_TIME);
     draw_string_scaled_centered_outlined(calendar_buf, date_y, date_str,
                                          fg_yellow, SCALE_DATE, SCALE_DATE);
-    draw_string_centered_outlined(calendar_buf, dow_y,
-                                  DAY_NAMES[now.tm_wday], fg_yellow);
+    draw_string_scaled_centered_outlined(calendar_buf, dow_y,
+                                  DAY_NAMES[now.tm_wday], fg_yellow, 1, 1);
 
 #if USE_BGR565
     convert_frame_to_bgr(calendar_buf, FB_W * FB_H);
