@@ -11,7 +11,7 @@ import struct
 from PIL import Image
 
 # Display configuration - match your hardware
-ST7789_2_8 = False  # Set to True if using ST7789 2.8" with INVON
+ST7789_2_8 = True  # Set to True if using ST7789 2.8" with INVON
 
 def rgb565(r, g, b):
     """
@@ -26,7 +26,7 @@ def rgb565(r, g, b):
         v = ~v & 0xFFFF
     return v
 
-def convert_image(img_path, bin_path, dst_w=240, dst_h=240):
+def convert_image(img_path, bin_path, dst_w=240, dst_h=240, rotate=90):
     """
     Convert image to raw RGB565 binary format
     
@@ -40,6 +40,7 @@ def convert_image(img_path, bin_path, dst_w=240, dst_h=240):
     img = Image.open(img_path)
     
     # Convert to RGB and resize
+    img = img.rotate(-rotate, expand=True)  # Rotate clockwise by default
     img = img.convert("RGB").resize((dst_w, dst_h), Image.LANCZOS)
     px = img.load()
     
@@ -70,17 +71,18 @@ def convert_image(img_path, bin_path, dst_w=240, dst_h=240):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python3 img2bin.py input.png output.bin [width] [height]")
+        print("Usage: python3 img2bin.py input.png output.bin [width] [height] [rotate]")
         print("\nExamples:")
         print("  python3 img2bin.py background.png 00.bin")
-        print("  python3 img2bin.py photo.jpg 01.bin 240 240")
+        print("  python3 img2bin.py photo.jpg 01.bin 240 240 90")
         sys.exit(1)
     
     img_path = sys.argv[1]
     bin_path = sys.argv[2] if len(sys.argv) > 2 else "output.bin"
     width = int(sys.argv[3]) if len(sys.argv) > 3 else 240
-    height = int(sys.argv[4]) if len(sys.argv) > 4 else 240
-    
+    height = int(sys.argv[4]) if len(sys.argv) > 4 else 320
+    rotate = int(sys.argv[5]) if len(sys.argv) > 5 else 90
+
     try:
         convert_image(img_path, bin_path, width, height)
     except FileNotFoundError:
